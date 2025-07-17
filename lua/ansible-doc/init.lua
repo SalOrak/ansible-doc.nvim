@@ -154,16 +154,9 @@ end
 local create_module_buffer = function(module, data)
     vim.schedule( function()
         local buf = vim.api.nvim_create_buf(false, true)
-        vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-            "# My Heading",
-            "",
-            "This is some text.",
-            "IMPORTANT: Do this!",
-            "",
-            "```yaml",
-            "foo: bar",
-            "```",
-        })
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, 
+            vim.split(data, '\n')
+        )
         vim.cmd("vsplit")
         vim.api.nvim_win_set_buf(0, buf)
         vim.bo[buf].filetype = "ansibledoc"
@@ -176,15 +169,18 @@ end
 -- Module docs will be stored locally in stdpath("data")/ansible-doc/dir1/dir2/module.md
 M.parse_module = function(module)
     local module_path = M.get_module_path(module)
+    local data = {}
     if not Path:new(module_path):exists() then
         local output = vim.system({"ansible-doc", "--json", module}, {text = true}, function(obj)
-            create_module_buffer(module, vim.json.decode(obj.stdout))
             writeFileAsync(module_path, obj.stdout)
+            data = obj.stdout
         end)
         output:wait()
     else
-        create_module_buffer(module, readFileSync(module_path))
+        data = readFileSync(module_path)
     end
+
+    create_module_buffer(module, data)
 end
 
 M.ansible_docs = function(opts)

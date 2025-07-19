@@ -1,0 +1,28 @@
+# Module: [module_name]
+
+[doc][description]
+
+* OPTIONS
+Required options are shown as: required
+Optional options are shown as: optional
+
+foreach option:
+[doc][options][option]: [doc][options][option][description]
+\t\tkey1: value1
+
+* ATTRIBUTES
+[doc][attributes][attribute]:
+
+foreach attribute:
+\t key: [doc][attributes][attribute][key]
+
+
+* EXAMPLES
+---
+[examples]
+---
+
+* RETURN
+
+* AUTHOR
+[doc][author]

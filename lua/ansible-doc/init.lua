@@ -18,12 +18,33 @@ local function writeFileAsync(path, data)
     end)
 end
 
+local function appendFileAsync(path, data)
+    uv.fs_open(path, "a", 438, function(err, fd)
+        assert(not err, err)
+        uv.fs_write(fd, data, -1, function(err, written)
+            assert(not err, err)
+            uv.fs_close(fd, function(err)
+                assert(not err, err)
+            end)
+        end)
+    end)
+end
+
 local function readFileSync(path)
     local fd = assert(uv.fs_open(path, "r", 438))
     local stat = assert(uv.fs_fstat(fd))
     local data = assert(uv.fs_read(fd, stat.size, 0))
     assert(uv.fs_close(fd))
     return data
+end
+
+local function removeFile(path)
+    local ok, err = os.remove(path)
+    if not ok then
+        P(err)
+        return false
+    end
+    return true
 end
 
 local M = {
@@ -185,28 +206,27 @@ end
 M.__nested_options = function(options, depth, result)
     local result = result or {}
     local inserted_description = false
+
     table.sort(options)
+
     for attr, value in pairs(options) do
         local str_attr = attr
         if depth == 1 then
-            if M.__key_in_table(value, "required") and vim.fn.string(value["required"]) == "v:true"then
+            if M.__key_in_table(value, "required") and vim.fn.string(value["required"]) == "v:true" then
                 str_attr = M.opts.syntax.required.start .. attr .. M.opts.syntax.required.close
             else 
                 str_attr = M.opts.syntax.optional.start .. attr .. M.opts.syntax.optional.close
             end
-        end
-        if M.__key_in_table(value, "description") and not inserted_description then
-            if type(value) == "table" then
-                if vim.islist(value) then
+            if M.__key_in_table(value, "description") and not inserted_description then
+                if type(value["description"]) == "table" then
                     value = table.concat(value["description"])
                 else
                     value = vim.fn.string(value["description"])
                 end
+                table.insert(result, string.rep("\t", depth) .. str_attr.. ": " .. value)
+                inserted_description = true
             end
-            table.insert(result, string.rep("\t", depth) .. str_attr.. ": " .. value)
-            inserted_description = true
-        end
-        if attr ~= "description" then
+        elseif attr ~= "description" then
             str_attr = M.opts.syntax.attr.start .. attr .. M.opts.syntax.attr.close
             if type(value) == "table" and not vim.tbl_islist(value) then
                 if not inserted_description then
@@ -224,12 +244,41 @@ M.__nested_options = function(options, depth, result)
     return result
 end
 
+M.__generate_top_level_options = function(options, depth, result)
+    local result = result or {}
+    local inserted_description = false
+
+    table.sort(options)
+
+    for attr, value in pairs(options) do
+        local str_attr = attr
+        if M.__key_in_table(value, "required") and vim.fn.string(value["required"]) == "v:true" then
+            str_attr = M.opts.syntax.required.start .. attr .. M.opts.syntax.required.close
+        else 
+            str_attr = M.opts.syntax.optional.start .. attr .. M.opts.syntax.optional.close
+        end
+        if M.__key_in_table(value, "description") and not inserted_description then
+            if type(value) == "table" then
+                if vim.islist(value) then
+                    P("IS A LIST!")
+                    value = table.concat(value["description"])
+                else
+                    P(value)
+                    value = vim.fn.string(value["description"])
+                end
+            end
+            table.insert(result, string.rep("\t", depth) .. str_attr.. ": " .. value)
+            inserted_description = true
+        end
+    end
+end
+
 M.__ansibledoc_generate_options = function(options, result)
     local result = result or {}
     if options == nil then
         return
     end
-    
+
     table.insert(result, "".."* OPTIONS")
     table.insert(result, "Required options are shown as:\t" .. M.opts.syntax.required.start .. "required" .. M.opts.syntax.required.close )
     table.insert(result, "Optional options are shown as:\t" .. M.opts.syntax.optional.start .. "optional" .. M.opts.syntax.optional.close )
@@ -281,9 +330,11 @@ M.__ansibledoc_generate_notes = function(notes, result)
     end
     table.insert(result, "".."* NOTES: ")
     table.insert(result,"")
-    table.foreach(notes, function(_,note) 
-        table.insert(result, "\t* " .. note)
-    end)
+    if type(notes) == "table" then
+        table.foreach(notes, function(_,note) 
+            table.insert(result, "\t* " .. note)
+        end)
+    end
     table.insert(result, "")
 end
 
@@ -325,12 +376,6 @@ M.__ansibledoc_generate_retvalues = function(ret, result)
         local str_value = vim.fn.string(value)
         table.insert(result, string.rep("\t", 1) .. str_attr .. ": ") 
         for key, val in pairs(value) do
-            if type(val) == "table" and vim.islist(val)  then
-                local has, err = pcall(table.concat, val)
-                if has then
-                    val = err
-                end
-            end
             table.insert(result, string.rep("\t", 2) .. key .. ": " .. vim.fn.string(val))
         end
         table.insert(result, "")
@@ -359,7 +404,10 @@ local parse_to_ansible_doc = function(str_data)
     local notes = docs["notes"]
 
     table.insert(result, "# Module: [" ..module_name .. "]")
-    table.insert(result, table.concat(description,"") .. "")
+    if type(description) == "table" then
+        description = table.concat(description, "")
+    end
+    table.insert(result, description .. "")
     table.insert(result, "")
 
     M.__ansibledoc_generate_author(author, result)
@@ -394,35 +442,75 @@ end
 
 -- Module docs will be stored locally in stdpath("data")/ansible-doc/dir1/dir2/module.md
 M.parse_module = function(module)
-    local module_path = M.get_module_path(module)
-    local data = {}
-    if not Path:new(module_path):exists() then
-        local output = vim.system({"ansible-doc", "--json", module}, {text = true}, function(obj)
-            writeFileAsync(module_path, obj.stdout)
-            data = obj.stdout
-        end)
-        output:wait()
-    else
-        data = readFileSync(module_path)
-    end
-
-    create_module_buffer(module, data)
 end
 
-M.parse_module_only_data = function(module)
+M.__create_module_file = function(module, path)
+    local data = {}
+    local output = vim.system({"ansible-doc", "--json", module}, {text = true}, function(obj)
+        writeFileAsync(path, obj.stdout)
+        data = obj.stdout
+    end)
+    output:wait()
+    return data
+end
+
+M.get_parsed_module_data = function(module)
     local module_path = M.get_module_path(module)
     local data = {}
     if not Path:new(module_path):exists() then
-        local output = vim.system({"ansible-doc", "--json", module}, {text = true}, function(obj)
-            writeFileAsync(module_path, obj.stdout)
-            data = obj.stdout
-        end)
-        output:wait()
+        data = M.__create_module_file(module, module_path)
     else
         data = readFileSync(module_path)
+        -- If the file is empty recreate it
+        if string.len(data) == 0 then
+            removeFile(module_path)  -- Delete empty file
+            return M.get_parsed_module_data(module) -- Recreate it
+        end
     end
 
-    return table.concat(parse_to_ansible_doc(data), "\n")
+    return parse_to_ansible_doc(data)
+end
+
+M.test_modules = function()
+    if vim.tbl_isempty(M.docs) then
+        M.populate_modules_doc(false) 
+    end
+
+    local errors_path = "/tmp/ansible-doc.errors.txt"
+    writeFileAsync(errors_path, "") -- Overwrite it with nothing
+
+    local keys = vim.fn.keys(M.docs)
+    local total = #keys
+    local curr = 0
+    local errors = 0
+    local function step()
+        curr = curr + 1
+        module = keys[curr]
+
+        vim.api.nvim_echo({{string.format("Testing progress: %d / %d", curr, total)}, {''}}, false, {})
+
+        local is_correct, err_msg = pcall(M.get_parsed_module_data, module)
+        if not is_correct then
+            errors = errors + 1
+            local data = {
+                module,
+                err_msg,
+                "\n"
+            }
+            appendFileAsync(errors_path, data)
+        end
+
+        if curr < total then
+            vim.defer_fn(step, 10) -- next in 10 ms
+        else
+            if errors > 0 then
+                vim.api.nvim_echo({{string.format("Found %d errors.\n", errors)}, {string.format("Open an issue at GitHub showing the contents of the file at %s", errors_path)}}, false, {})
+            else
+                vim.api.nvim_echo({{"Done!"}, {""}}, false, {})
+            end
+        end
+    end
+    step()
 end
 
 M.ansible_docs = function(opts)
@@ -440,7 +528,8 @@ M.ansible_docs = function(opts)
     opts.actions = {
         ['default'] = function(selected)
             local module = selected[1]
-            M.parse_module(module)
+            local data = M.get_parsed_module_data(module)
+            create_module_buffer(module, data)
         end
     }
 
@@ -448,7 +537,9 @@ M.ansible_docs = function(opts)
         local utils = fzf_lua.utils
         local ansi = utils.ansi_codes
         local dark_grey = ansi.dark_grey
-        return dark_grey(M.parse_module_only_data(item[1]))
+        -- local data = M.get_parsed_module_data(module)
+        -- return dark_grey(table.concat(data, "\n"))
+        return dark_grey(M.docs[item[1]])
     end
 
     fzf_lua.fzf_exec( function(fzf_cb)

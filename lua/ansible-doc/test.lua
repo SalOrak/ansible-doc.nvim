@@ -71,7 +71,7 @@ M.all_modules= function()
             vim.defer_fn(step, 10) -- next in 10 ms
         else
             if errors > 0 then
-                vim.api.nvim_echo({{string.format("Found %d errors.\n", errors)}, {string.format("Open an issue on GitHub (https://github.com/SalOrak/ansible-doc.nvim.git) showing the contents of the file at %s", errors_path)}}, false, {})
+                vim.api.nvim_echo({{string.format("Found %d errors.\n", errors)}, {string.format("Open an issue on GitHub (https://github.com/SalOrak/ansible-doc.nvim.git) showing the contents of the file at %s", M.errors_path)}}, false, {})
             else
                 vim.api.nvim_echo({{"Done. No errors found"}, {""}}, false, {})
             end

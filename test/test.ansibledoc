@@ -1,8 +1,15 @@
 # My heading
 
-IMPORTANT
+* IMPORTANT
 
-```yaml
-docs:
+Hello this is `an inline text`
+
+---
+test:
     test: "hello world"
-```
+    test: 2
+
+---
+
+
+

@@ -12,6 +12,22 @@ highlight link adItem Label
 syntax region adInlineCode start="`" end="`" keepend 
 highlight def link adInlineCode Constant
 
+" Highlight Code in module with ``
+syntax region adCodeInMod start="C(" end=")" keepend 
+highlight def link adCodeInMod Constant
+
+" Highlight Module in module with ``
+syntax region adModuleInMod start="M(" end=")" keepend 
+highlight def link adModuleInMod Underlined
+
+" Highlight Value in module with ``
+syntax region adValueInMod start="V(" end=")" keepend 
+highlight def link adValueInMod Identifier
+
+" Highlight Return in module with ``
+syntax region adVerboseInMod start="R(" end=")" keepend 
+highlight def link adVerboseInMod Structure
+
 " Highlight Optional modules
 syntax region adOptionalModule start="\t\~" end="\~" keepend 
 highlight def link adOptionalModule String

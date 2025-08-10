@@ -7,6 +7,8 @@ M.ansible_modules_filepath = string.format("%s/modules.json", M.data_path)
 
 M.data_path_exists = false
 
+M.errors_path = "/tmp/ansible-doc.errors.txt"
+
 M.syntax = {
     optional = {
         start= "~",
@@ -21,6 +23,7 @@ M.syntax = {
         close = "|"
     }
 }
+
 M.ensure_data_path_exists = function()
     if M.data_path_exists then
         return

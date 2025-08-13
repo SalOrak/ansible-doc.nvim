@@ -4,11 +4,9 @@ local Const = require('ansible-doc.constants')
 local File = require('ansible-doc.file')
 local Parse = require('ansible-doc.parse')
 local Module = require('ansible-doc.module')
+local Config = require('ansible-doc.config')
 
-local M = {
-    docs = {},
-}
-
+local modules = {}
 
 ---@brief Generates an error message based on parameters for
 --- better errors during testing.
@@ -34,15 +32,21 @@ end
 --- generated and it does not throw any errors. 
 --- If an error is thrown, the function returns early.
 ---
+---@param opts table: Options for parsing.
 ---@param module string: Name of the module to be tested.
 ---
 ---@returns table: 
 ---     status boolean: Whether the testing was successfull or not.
 ---     data   string:  Information about the error. `nil` in case of success.
-M.single_module = function(module)
+M.single_module = function(opts, module)
 
-    if vim.tbl_isempty(M.docs) then
-        M.docs = Module.generate_names_list()
+    local opts = opts or {}
+
+    opts = Utils.merge_tables_by_key(opts, Config)
+
+
+    if vim.tbl_isempty(modules) then
+        modules = Module.generate_names_list()
     end
 
     local is_correct, err_msg = pcall(Module.get_raw_ansibledoc, module)
@@ -53,7 +57,7 @@ M.single_module = function(module)
 
     local raw_data = err_msg
 
-    local is_correct, err_msg = pcall(Parse.ansibledoc_data, raw_data)
+    local is_correct, err_msg = pcall(Parse.ansibledoc_data, opts, raw_data)
     if not is_correct then
         local err_msg = parse_error(module, "Parse.ansibledoc_data()", err_msg)
         return { status = false, data = err_msg}
@@ -72,14 +76,18 @@ end
 ---   the function continues executing.
 ---
 ---@returns nil
-M.all_modules= function()
-    if vim.tbl_isempty(M.docs) then
-        M.docs = Module.generate_names_list()
+M.all_modules= function(opts)
+
+    local opts = opts or {}
+    opts = Utils.merge_tables_by_key(opts, Config)
+
+    if vim.tbl_isempty(modules) then
+        modules = Module.generate_names_list()
     end
 
     File.writeFileAsync(Const.errors_path, "") -- Overwrite it with nothing
 
-    local keys = vim.fn.keys(M.docs)
+    local keys = vim.fn.keys(modules)
     local total = #keys
     local curr = 0
     local errors = 0
@@ -89,10 +97,10 @@ M.all_modules= function()
 
         vim.api.nvim_echo({{string.format("Testing progress: %d / %d", curr, total)}, {''}}, false, {})
 
-        local test_data = M.single_module(module)
+        local test_data = M.single_module({}, module)
         if not test_data.status then
             errors = errors + 1
-            File.appendFileAsync(Const.errors_path, test_data.data)
+            File.appendFileAsync(opts.errors_path, test_data.data)
         end
 
         if curr < total then

@@ -87,10 +87,11 @@ end
 
 ---@brief Creates the documentation buffer itself.
 ---
+---@para opts table: Configuration options. See `ansible-doc.config`.
 ---@param module string: Module name. Used to set the buffer name.
 ---@param data table: Flat table containing the final documentation to
 ---                   be inserted in the buffer as it is.
-M.create_buffer = function(module, data)
+M.create_buffer = function(opts, module, data)
     for i, v in ipairs(data) do
         -- Writing on a buffer does not allow newlines.
         -- Newlines are written automatically by each entry in the table.
@@ -103,15 +104,23 @@ M.create_buffer = function(module, data)
 
     vim.schedule( function()
         local bufnr = vim.fn.bufnr(buffer_name)
+
         -- Found a buffer with the same name.
         if bufnr > 0 then
-            vim.api.nvim_win_set_buf(0, bufnr)
-            return
+            if opts.cache_pages then
+                vim.api.nvim_win_set_buf(0, bufnr)
+                return
+            else
+                -- Found same buffer but we don't want it. 
+                vim.api.nvim_buf_delete(bufnr, { force = true })
+            end
         end
 
-        -- TODO: Users should be able to select whether they prefer
-        -- to have the buffer listed or not.
-        local buf = vim.api.nvim_create_buf(true, true)
+        local buf = vim.api.nvim_create_buf(
+            opts.buffer_opts.listed ,
+            opts.buffer_opts.scratch
+        )
+
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, data)
         vim.api.nvim_buf_set_name(buf, buffer_name)
         vim.api.nvim_win_set_buf(0, buf)

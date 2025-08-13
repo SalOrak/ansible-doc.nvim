@@ -42,6 +42,32 @@ M.table_get_sorted_keys = function(t)
 end
 
 
+-- @brief: Merges two tables and returns one.
+-- It merges one level of depth only. First table has priority over second
+-- If two tables have the same key with different values, the first table
+-- passed in has priority over the second.
+--
+-- @param t1 table: Table with priority to merge
+-- @param t2 table: Table 
+--
+-- @return table: t1 and t2 merged.
+M.merge_tables_by_key = function(t1, t2)
+    local out = {}
+    local t1 = t1 or {}
+    local t2 = t2 or {}
+
+    for k,v  in pairs(t2) do
+        out[k] = v
+    end
+
+    for k,v  in pairs(t1) do
+        out[k] = v
+    end
+
+    return out
+end
+
+
 return M
 
 

@@ -1,66 +1,8 @@
 local Consts = require('ansible-doc.constants')
 local Utils = require('ansible-doc.utils')
+local Config = require('ansible-doc.config')
 
 local M = {}
-
-local ansible_version = {
-    core_version = {},
-    config_file = {},
-    module_search_path = {},
-    ansible_python_location = {},
-    ansible_collection_location = {},
-    ansible_executable_location = {},
-    python_version = {},
-    jinja_version = {},
-    libyaml = {},
-}
-
-
-M.ansible_version = function()
-    local version = {}
-
-    local stdout = vim.system({"ansible-doc", "--version"}, {text = true}, function(obj)
-        local splitted = vim.split(obj.stdout, '\n')
-        local clean_data = {}
-        for value in vim.iter(splitted) do
-            if value ~= "" then
-                table.insert(clean_data, vim.trim(value))
-            end
-        end
-
-        local iter = vim.iter(clean_data)
-
-        local core_version = vim.split(string.match(iter:next(), "%[(.-)%]"), ' ')[2]
-        local config_file = vim.split(iter:next(), '=')[2] 
-        local raw_module_search_path = vim.split(iter:next(), '=')[2]
-        local ansible_python_location = vim.split(iter:next(), '=')[2] 
-        local ansible_collection_location = vim.split(iter:next(), '=')[2] 
-        local ansible_executable_location = vim.split(iter:next(), '=')[2] 
-        local python_version = vim.split(vim.split(iter:next(), '=')[2], ' ')[2]
-        local jinja_version = vim.split(iter:next(), '=')[2] 
-        local libyaml = vim.split(iter:next(), '=')[2] 
-
-        local module_search_path = {}
-        for value in string.gmatch(raw_module_search_path, "'(.-)'") do
-            table.insert(module_search_path, value)
-        end
-
-
-        ansible_version= {
-            core_version = vim.trim(core_version),
-            config_file = vim.trim(config_file),
-            module_search_path = module_search_path,
-            ansible_python_location = vim.trim(ansible_python_location),
-            ansible_collection_location = ansible_collection_location,
-            ansible_executable_location = vim.trim(ansible_executable_location),
-            python_version = vim.trim(python_version),
-            jinja_version = vim.trim(jinja_version),
-            libyaml = vim.trim(libyaml),
-        }
-
-        return ansible_version
-    end)
-end
 
 M.ansibledoc_author = function(author, result)
     local result = result or {}
@@ -308,26 +250,19 @@ M.__ansibledoc_sub_options = function(options, depth, result)
     table.insert(result,"")
 end
 
-
-local ansibledoc_enum = {
-    a = M.ansibledoc_author,
-    r = M.ansibledoc_return,
-    t = M.ansibledoc_attributes,
-    n = M.ansibledoc_notes,
-    o = M.ansibledoc_options,
-}
-
-local ansibledoc_enum_list = {
-    author = M.ansibledoc_author,
-    ret = M.ansibledoc_return,
-    attributes = M.ansibledoc_attributes,
-    notes = M.ansibledoc_notes,
-    options = M.ansibledoc_options,
-}
-
-M.ansibledoc_data = function(str_data, modules_order)
+-- @brief: Builds the documentation for the module information.
+-- 
+-- @param opts table: Options to change function behaviour
+--              @key docs_structure: Flatten list of sections to include 
+--              in the appropiate order.
+-- @param str_data table: JSON table representing module data
+--
+-- @return result table: to display documentation line by line.
+M.ansibledoc_data = function(opts, str_data)
 
     local result = {}
+
+    local opts = opts or {}
 
     local json_data = vim.json.decode(str_data)
     local module_name = vim.fn.keys(json_data)[1]
@@ -352,12 +287,23 @@ M.ansibledoc_data = function(str_data, modules_order)
     table.insert(result, description .. "")
     table.insert(result, "")
 
-    M.ansibledoc_author(author, result)
-    M.ansibledoc_options(options, result)
-    M.ansibledoc_return(ret, result)
-    M.ansibledoc_examples(examples, result)
-    M.ansibledoc_attributes(attributes, result)
-    M.ansibledoc_notes(notes, result)
+    table.foreach(opts.docs_structure, function(_,section)
+        local section = string.lower(section)
+        if section == "author" then
+            M.ansibledoc_author(author, result)
+        elseif section == "options" then
+            M.ansibledoc_options(options, result)
+        elseif section == "return" then
+            M.ansibledoc_return(ret, result)
+        elseif section == "examples" then
+            M.ansibledoc_examples(examples, result)
+        elseif section == "attributes" then
+            M.ansibledoc_attributes(attributes, result)
+        elseif section == "notes" then
+            M.ansibledoc_notes(notes, result)
+        end
+    end)
+
 
     return result
 end

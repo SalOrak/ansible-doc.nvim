@@ -18,6 +18,31 @@ local M = {
     opts = {},
 }
 
+
+M.ansible_doc_user_command = function(opts)
+    M.ansible_docs(M.opts)
+end
+
+M.ansible_doc = function(opts, module_name)
+    local opts = opts or {}
+
+    local opts = Utils.merge_tables_by_key(opts, M.opts)
+
+    if vim.tbl_isempty(modules) then
+        modules = Module.generate_names_list()
+    end
+
+    if not Utils.table_has_key(modules, module_name) then
+        -- Return silently
+        return 
+    end
+
+    local data = Module.get_raw_ansibledoc(module_name)
+    data = Parse.ansibledoc_data(opts, data)
+    Module.create_buffer(opts, module, data)
+
+end
+
 M.ansible_docs = function(opts)
 
     local opts = opts or {}
@@ -38,9 +63,7 @@ M.ansible_docs = function(opts)
     fzf_opts.actions = {
         ['default'] = function(selected)
             local module = selected[1]
-            local data = Module.get_raw_ansibledoc(module)
-            data = Parse.ansibledoc_data(opts, data)
-            Module.create_buffer(opts, module, data)
+            M.ansible_doc(opts, module)
         end
     }
 
@@ -80,8 +103,6 @@ end
 
 M.setup = function(opts)
 
-    local opts = opts or {}
-
     -- Merge options
     M.opts = Utils.merge_tables_by_key(opts, Config)
 
@@ -89,6 +110,9 @@ M.setup = function(opts)
     if M.opts.pre_compute.enable then
         M.pre_compute_modules()
     end
+
+    -- Create user commands
+    vim.api.nvim_create_user_command("AnsibleDoc", M.ansible_doc_user_command, {})
 
     vim.filetype.add({
         extension = {

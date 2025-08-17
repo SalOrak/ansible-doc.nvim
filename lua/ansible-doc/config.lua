@@ -13,7 +13,7 @@ local M = {
         overwrite = false
     },
 
-    -- Whether documentation pages are cached inside buffer list.
+    -- Whether the buffer list acts as a documentation page cache.
     -- When requesting a documentation already rendered and present in the
     -- buffer list, show it instead of rendering again.
     cache_pages = true,

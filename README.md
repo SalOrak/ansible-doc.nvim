@@ -14,7 +14,7 @@ vim.keymap.set({"n"}, "<leader>ad", ":AnsibleDoc<CR>")
 
 ## Demo
 
-!(Demo GIF)[./assets/demo.gif]
+![Demo GIF](./assets/demo.gif)
 
 ## Dependencies
 

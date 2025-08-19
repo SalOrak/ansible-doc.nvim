@@ -102,10 +102,6 @@ Passed to the `setup()` function when installing the plugin or use the `opts` sp
 
 ```
 
-
-## Customization examples
-
-
 ## Why not use the ansible LSP? 
 
 To be honest, I think they are 2 different tools. Whilst LSP allows for autocompletion of modules and real time documentation, among other goodies, `ansible-doc` enables the discovery of modules as well as buffer-based documentation.

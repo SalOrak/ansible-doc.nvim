@@ -1,5 +1,7 @@
 # Ansible-doc (.) Neovim
 
+![Logo](./assets/logo.png)
+
 `ansible-doc.nvim` offers a way to search through ansible documentation directly from the neovim editor.
 Specifically, `ansible-doc` allows searching for ansible module's documentation using `fzf-lua`, previewing them and even customizing it!
 
